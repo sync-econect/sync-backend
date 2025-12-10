@@ -7,7 +7,8 @@ async function bootstrap() {
 
   // Habilitar CORS para o frontend
   app.enableCors({
-    origin: process.env.FRONTEND_URL ?? 'https://sync-fe-flax.vercel.app',
+    origin:
+      process.env.FRONTEND_URL ?? 'https://sync-frontend-seven.vercel.app',
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     credentials: true,
   });
