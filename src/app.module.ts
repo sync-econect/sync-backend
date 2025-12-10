@@ -9,6 +9,7 @@ import { HttpExceptionFilter } from './shared/filters/http-exception.filter';
 import { UnitsModule } from './modules/units/units.module';
 import { ValidationRulesModule } from './modules/validation-rules/validation-rules.module';
 import { RawDataModule } from './modules/raw-data/raw-data.module';
+import { ValidationsModule } from './modules/validations/validations.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { RawDataModule } from './modules/raw-data/raw-data.module';
     UnitsModule,
     ValidationRulesModule,
     RawDataModule,
+    ValidationsModule,
   ],
   controllers: [AppController],
   providers: [
