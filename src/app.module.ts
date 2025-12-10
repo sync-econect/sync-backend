@@ -8,6 +8,7 @@ import { LoggingInterceptor } from './shared/interceptors/logging.interceptor';
 import { HttpExceptionFilter } from './shared/filters/http-exception.filter';
 import { UnitsModule } from './modules/units/units.module';
 import { ValidationRulesModule } from './modules/validation-rules/validation-rules.module';
+import { RawDataModule } from './modules/raw-data/raw-data.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { ValidationRulesModule } from './modules/validation-rules/validation-rul
     PrismaModule,
     UnitsModule,
     ValidationRulesModule,
+    RawDataModule,
   ],
   controllers: [AppController],
   providers: [
