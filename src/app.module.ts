@@ -14,6 +14,7 @@ import { TransformModule } from './modules/transform/transform.module';
 import { RemittancesModule } from './modules/remittances/remittances.module';
 import { TceIntegrationModule } from './modules/tce-integration/tce-integration.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { EndpointConfigsModule } from './modules/endpoint-configs/endpoint-configs.module';
 import { AuditInterceptor } from './shared/interceptors/audit.interceptor';
 
 @Module({
@@ -31,6 +32,7 @@ import { AuditInterceptor } from './shared/interceptors/audit.interceptor';
     RemittancesModule,
     TceIntegrationModule,
     AuditModule,
+    EndpointConfigsModule,
   ],
   controllers: [AppController],
   providers: [
