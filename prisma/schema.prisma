@@ -168,16 +168,44 @@ model AuditLog {
 }
 
 model User {
-  id           Int       @id @default(autoincrement())
-  email        String    @unique
-  name         String
-  passwordHash String
-  role         String    @default("OPERATOR")
-  active       Boolean   @default(true)
-  lastLogin    DateTime?
+  id                  Int       @id @default(autoincrement())
+  email               String    @unique
+  name                String
+  passwordHash        String
+  role                String    @default("OPERATOR")
+  active              Boolean   @default(true)
   
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  lastLogin           DateTime?
+  lastActivity        DateTime?
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  
+  refreshToken        String?
+  refreshTokenExp     DateTime?
+  
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  sessions            UserSession[]
 
   @@map("users")
+}
+
+model UserSession {
+  id           Int       @id @default(autoincrement())
+  userId       Int
+  token        String    @unique
+  ip           String?
+  userAgent    String?
+
+  expiresAt    DateTime
+  createdAt    DateTime  @default(now())
+
+  lastActivity DateTime  @default(now())
+  
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("user_sessions")
 }

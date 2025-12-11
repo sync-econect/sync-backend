@@ -1,8 +1,10 @@
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client';
+import * as bcrypt from 'bcrypt';
 
 const connectionString = process.env.DATABASE_URL;
+const SALT_ROUNDS = 12;
 
 async function main() {
   const pool = new Pool({ connectionString });
@@ -10,6 +12,34 @@ async function main() {
   const prisma = new PrismaClient({ adapter });
 
   console.log('Iniciando seed...');
+
+  const adminPassword = await bcrypt.hash('Admin@123', SALT_ROUNDS);
+  const adminUser = await prisma.user.upsert({
+    where: { email: 'admin@econect.ms.gov.br' },
+    update: {},
+    create: {
+      email: 'admin@econect.ms.gov.br',
+      name: 'Administrador do Sistema',
+      passwordHash: adminPassword,
+      role: 'ADMIN',
+      active: true,
+    },
+  });
+  console.log(`Usuário admin criado: ${adminUser.email}`);
+
+  const operatorPassword = await bcrypt.hash('Operador@123', SALT_ROUNDS);
+  const operatorUser = await prisma.user.upsert({
+    where: { email: 'operador@econect.ms.gov.br' },
+    update: {},
+    create: {
+      email: 'operador@econect.ms.gov.br',
+      name: 'Operador de Teste',
+      passwordHash: operatorPassword,
+      role: 'OPERATOR',
+      active: true,
+    },
+  });
+  console.log(`Usuário operador criado: ${operatorUser.email}`);
 
   const unit = await prisma.unit.upsert({
     where: { code: 'UG001' },

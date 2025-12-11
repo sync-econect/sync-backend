@@ -9,12 +9,21 @@ import { catchError, tap } from 'rxjs/operators';
 import { Request } from 'express';
 import { AuditService } from '../../modules/audit/audit.service';
 
+interface AuthenticatedUser {
+  id: number;
+  email: string;
+  name: string;
+  role: string;
+}
+
 type AuditRequest = Request<
   Record<string, string>,
   unknown,
   unknown,
   Record<string, string>
->;
+> & {
+  user?: AuthenticatedUser;
+};
 
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
@@ -53,8 +62,11 @@ export class AuditInterceptor implements NestInterceptor {
       '';
     const userAgent = request.get('user-agent') ?? undefined;
 
+    const userId = request.user?.id ?? undefined;
+
     const logSuccess = async (): Promise<void> => {
       await this.auditService.logAction({
+        userId,
         action: method,
         entity: routePath,
         entityId: parsedEntityId,
@@ -71,6 +83,7 @@ export class AuditInterceptor implements NestInterceptor {
       };
 
       await this.auditService.logAction({
+        userId,
         action: `ERROR_${method}`,
         entity: routePath,
         entityId: parsedEntityId,
