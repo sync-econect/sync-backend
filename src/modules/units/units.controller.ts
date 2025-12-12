@@ -12,6 +12,10 @@ import {
 } from '@nestjs/common';
 import { UnitsService } from './units.service';
 import { CreateUnitDto, UpdateUnitDto } from './dto';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { RequirePermission } from '../auth/decorators/require-permission.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AuthenticatedUser } from '../auth/auth.service';
 
 @Controller('units')
 export class UnitsController {
@@ -19,21 +23,25 @@ export class UnitsController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @Roles('ADMIN', 'MANAGER')
   create(@Body() createUnitDto: CreateUnitDto) {
     return this.unitsService.create(createUnitDto);
   }
 
   @Get()
-  findAll() {
-    return this.unitsService.findAll();
+  @RequirePermission({ action: 'view' })
+  findAll(@CurrentUser() user?: AuthenticatedUser) {
+    return this.unitsService.findAll(user?.id);
   }
 
   @Get(':id')
+  @RequirePermission({ action: 'view' })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.unitsService.findOne(id);
   }
 
   @Patch(':id')
+  @Roles('ADMIN', 'MANAGER')
   update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateUnitDto: UpdateUnitDto,
@@ -43,6 +51,7 @@ export class UnitsController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @Roles('ADMIN')
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.unitsService.remove(id);
   }

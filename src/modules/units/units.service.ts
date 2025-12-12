@@ -1,10 +1,15 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../shared/prisma/prisma.service';
+import { UserPermissionsService } from '../user-permissions/user-permissions.service';
 import { CreateUnitDto, UpdateUnitDto } from './dto';
+import { Prisma } from '../../../generated/prisma/client';
 
 @Injectable()
 export class UnitsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private userPermissionsService: UserPermissionsService,
+  ) {}
 
   async create(createUnitDto: CreateUnitDto) {
     return this.prisma.client.unit.create({
@@ -12,8 +17,19 @@ export class UnitsService {
     });
   }
 
-  async findAll() {
+  async findAll(userId?: number) {
+    // Filtra por UGs permitidas para o usuário
+    let where: Prisma.UnitWhereInput = {};
+    if (userId) {
+      const permittedUnits =
+        await this.userPermissionsService.getPermittedUnits(userId, 'view');
+      if (permittedUnits !== 'all') {
+        where = { id: { in: permittedUnits } };
+      }
+    }
+
     return this.prisma.client.unit.findMany({
+      where,
       orderBy: { createdAt: 'desc' },
     });
   }

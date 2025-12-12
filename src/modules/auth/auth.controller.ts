@@ -12,7 +12,12 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { AuthService, AuthenticatedUser, TokenResponse } from './auth.service';
-import { LoginDto, RefreshTokenDto, ChangePasswordDto } from './dto';
+import {
+  LoginDto,
+  RefreshTokenDto,
+  ChangePasswordDto,
+  RegisterDto,
+} from './dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { Public } from './decorators/public.decorator';
@@ -20,6 +25,17 @@ import { Public } from './decorators/public.decorator';
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Public()
+  @Post('register')
+  async register(
+    @Body() registerDto: RegisterDto,
+    @Req() req: Request,
+    @Headers('user-agent') userAgent?: string,
+  ): Promise<TokenResponse> {
+    const ip = this.getClientIp(req);
+    return this.authService.register(registerDto, ip, userAgent);
+  }
 
   @Public()
   @Post('login')

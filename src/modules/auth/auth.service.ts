@@ -2,6 +2,7 @@ import {
   Injectable,
   UnauthorizedException,
   ForbiddenException,
+  ConflictException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -9,7 +10,7 @@ import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { UsersService } from '../users/users.service';
 import { PrismaService } from '../../shared/prisma/prisma.service';
-import { LoginDto, ChangePasswordDto } from './dto';
+import { LoginDto, ChangePasswordDto, RegisterDto } from './dto';
 
 export interface JwtPayload {
   sub: number;
@@ -64,6 +65,48 @@ export class AuthService {
       this.configService.get('INACTIVITY_TIMEOUT', '1800'),
       10,
     );
+  }
+
+  async register(
+    registerDto: RegisterDto,
+    ip?: string,
+    userAgent?: string,
+  ): Promise<TokenResponse> {
+    // Verifica se o email já existe
+    const existingUser = await this.usersService.findByEmail(registerDto.email);
+    if (existingUser) {
+      throw new ConflictException('Este e-mail já está cadastrado');
+    }
+
+    // Cria o hash da senha
+    const passwordHash = await bcrypt.hash(registerDto.password, SALT_ROUNDS);
+
+    // Cria o usuário com role padrão OPERATOR
+    const user = await this.prisma.client.user.create({
+      data: {
+        name: registerDto.name,
+        email: registerDto.email,
+        passwordHash,
+        role: 'ADMIN', // Novos usuários sempre começam como ADMIN
+        active: true,
+      },
+    });
+
+    // Gera tokens e cria sessão
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    const refreshTokenHash = this.hashToken(tokens.refreshToken);
+    await this.usersService.updateRefreshToken(user.id, refreshTokenHash);
+    await this.createSession(user.id, tokens.accessToken, ip, userAgent);
+
+    return {
+      ...tokens,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
+    };
   }
 
   async login(

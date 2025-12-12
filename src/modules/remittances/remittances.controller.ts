@@ -6,7 +6,9 @@ import {
   Param,
   Query,
   ParseIntPipe,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
 import {
   RemittancesService,
   RemittanceStats,
@@ -18,6 +20,9 @@ import {
 } from '../tce-integration/tce-integration.service';
 import { CreateRemittanceDto } from './dto';
 import { Remittance, RemittanceLog } from '../../../generated/prisma/client';
+import { RequirePermission } from '../auth/decorators/require-permission.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { AuthenticatedUser } from '../auth/auth.service';
 
 @Controller('remittances')
 export class RemittancesController {
@@ -27,18 +32,22 @@ export class RemittancesController {
   ) {}
 
   @Post()
+  @RequirePermission({ action: 'create' })
   async create(
     @Body() createRemittanceDto: CreateRemittanceDto,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<Remittance> {
-    return this.remittancesService.create(createRemittanceDto);
+    return this.remittancesService.create(createRemittanceDto, user.id);
   }
 
   @Get('stats')
+  @RequirePermission({ action: 'view' })
   async getStats(): Promise<RemittanceStats> {
     return this.remittancesService.getStats();
   }
 
   @Get()
+  @RequirePermission({ action: 'view' })
   async findAll(
     @Query('status') status?: string,
     @Query('module') module?: string,
@@ -48,6 +57,7 @@ export class RemittancesController {
     @Query('to') to?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @CurrentUser() user?: AuthenticatedUser,
   ): Promise<{
     data: Remittance[];
     total: number;
@@ -64,15 +74,17 @@ export class RemittancesController {
       page: page ? parseInt(page, 10) : undefined,
       limit: limit ? parseInt(limit, 10) : undefined,
     };
-    return this.remittancesService.findAll(filters);
+    return this.remittancesService.findAll(filters, user?.id);
   }
 
   @Get(':id')
+  @RequirePermission({ action: 'view' })
   async findOne(@Param('id', ParseIntPipe) id: number): Promise<Remittance> {
     return this.remittancesService.findOne(id);
   }
 
   @Get(':id/logs')
+  @RequirePermission({ action: 'view' })
   async getLogs(
     @Param('id', ParseIntPipe) id: number,
   ): Promise<RemittanceLog[]> {
@@ -80,17 +92,29 @@ export class RemittancesController {
   }
 
   @Post(':id/send')
-  async send(@Param('id', ParseIntPipe) id: number): Promise<SendResult> {
-    return this.tceIntegrationService.sendRemittance(id);
+  @RequirePermission({ action: 'transmit' })
+  async send(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<SendResult> {
+    return this.tceIntegrationService.sendRemittance(id, user.id);
   }
 
   @Post(':id/cancel')
-  async cancel(@Param('id', ParseIntPipe) id: number): Promise<Remittance> {
-    return this.remittancesService.cancel(id);
+  @RequirePermission({ action: 'delete' })
+  async cancel(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<Remittance> {
+    return this.remittancesService.cancel(id, user.id);
   }
 
   @Post(':id/retry')
-  async retry(@Param('id', ParseIntPipe) id: number): Promise<Remittance> {
-    return this.remittancesService.retry(id);
+  @RequirePermission({ action: 'transmit' })
+  async retry(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<Remittance> {
+    return this.remittancesService.retry(id, user.id);
   }
 }

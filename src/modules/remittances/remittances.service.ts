@@ -3,11 +3,13 @@ import {
   NotFoundException,
   UnprocessableEntityException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import { Remittance, Prisma } from '../../../generated/prisma/client';
 import { ValidationsService } from '../validations/validations.service';
 import { TransformService } from '../transform/transform.service';
+import { UserPermissionsService } from '../user-permissions/user-permissions.service';
 import { CreateRemittanceDto } from './dto';
 
 export interface RemittanceStats {
@@ -33,9 +35,13 @@ export class RemittancesService {
     private prisma: PrismaService,
     private validationsService: ValidationsService,
     private transformService: TransformService,
+    private userPermissionsService: UserPermissionsService,
   ) {}
 
-  async create(createRemittanceDto: CreateRemittanceDto): Promise<Remittance> {
+  async create(
+    createRemittanceDto: CreateRemittanceDto,
+    userId?: number,
+  ): Promise<Remittance> {
     const { rawDataId } = createRemittanceDto;
 
     const rawData = await this.prisma.client.rawData.findUnique({
@@ -44,6 +50,16 @@ export class RemittancesService {
 
     if (!rawData) {
       throw new NotFoundException(`RawData com ID ${rawDataId} não encontrado`);
+    }
+
+    // Verifica permissão granular por UG e módulo
+    if (userId) {
+      await this.checkPermission(
+        userId,
+        rawData.unitId,
+        rawData.module,
+        'create',
+      );
     }
 
     await this.prisma.client.remittance
@@ -82,7 +98,10 @@ export class RemittancesService {
     return remittance;
   }
 
-  async findAll(filters?: RemittanceFilters): Promise<{
+  async findAll(
+    filters?: RemittanceFilters,
+    userId?: number,
+  ): Promise<{
     data: Remittance[];
     total: number;
     page: number;
@@ -100,12 +119,23 @@ export class RemittancesService {
       };
     }
 
+    // Filtra por UGs permitidas para o usuário
+    let unitFilter: Prisma.RemittanceWhereInput = {};
+    if (userId) {
+      const permittedUnits =
+        await this.userPermissionsService.getPermittedUnits(userId, 'view');
+      if (permittedUnits !== 'all') {
+        unitFilter = { unitId: { in: permittedUnits } };
+      }
+    }
+
     const where: Prisma.RemittanceWhereInput = {
       ...(filters?.status && { status: filters.status }),
       ...(filters?.module && { module: filters.module }),
       ...(filters?.competency && { competency: filters.competency }),
       ...(filters?.unitId && { unitId: filters.unitId }),
       ...dateFilter,
+      ...unitFilter,
     };
 
     const [data, total] = await Promise.all([
@@ -135,8 +165,18 @@ export class RemittancesService {
     return remittance;
   }
 
-  async cancel(id: number): Promise<Remittance> {
+  async cancel(id: number, userId?: number): Promise<Remittance> {
     const remittance = await this.findOne(id);
+
+    // Verifica permissão granular
+    if (userId) {
+      await this.checkPermission(
+        userId,
+        remittance.unitId,
+        remittance.module,
+        'delete',
+      );
+    }
 
     if (['SENT', 'CANCELLED'].includes(remittance.status)) {
       throw new BadRequestException(
@@ -150,8 +190,18 @@ export class RemittancesService {
     });
   }
 
-  async retry(id: number): Promise<Remittance> {
+  async retry(id: number, userId?: number): Promise<Remittance> {
     const remittance = await this.findOne(id);
+
+    // Verifica permissão granular
+    if (userId) {
+      await this.checkPermission(
+        userId,
+        remittance.unitId,
+        remittance.module,
+        'transmit',
+      );
+    }
 
     if (remittance.status !== 'ERROR') {
       throw new BadRequestException(
@@ -195,5 +245,32 @@ export class RemittancesService {
       where: { remittanceId: remittance.id },
       orderBy: { createdAt: 'asc' },
     });
+  }
+
+  private async checkPermission(
+    userId: number,
+    unitId: number,
+    module: string,
+    action: 'view' | 'create' | 'edit' | 'delete' | 'transmit',
+  ): Promise<void> {
+    const hasPermission = await this.userPermissionsService.checkPermission({
+      userId,
+      unitId,
+      module,
+      action,
+    });
+
+    if (!hasPermission) {
+      const actionLabels: Record<string, string> = {
+        view: 'visualizar',
+        create: 'criar',
+        edit: 'editar',
+        delete: 'cancelar',
+        transmit: 'transmitir',
+      };
+      throw new ForbiddenException(
+        `Você não tem permissão para ${actionLabels[action]} remessas desta UG/módulo`,
+      );
+    }
   }
 }

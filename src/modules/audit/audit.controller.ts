@@ -10,12 +10,14 @@ import {
 import { AuditService } from './audit.service';
 import { CreateAuditLogDto } from './dto';
 import { AuditLog } from '../../../generated/prisma/client';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @Controller('audit')
 export class AuditController {
   constructor(private readonly auditService: AuditService) {}
 
   @Post()
+  @Roles('ADMIN', 'MANAGER')
   async create(
     @Body() createAuditLogDto: CreateAuditLogDto,
   ): Promise<AuditLog> {
@@ -23,6 +25,7 @@ export class AuditController {
   }
 
   @Get()
+  @Roles('ADMIN', 'MANAGER')
   async findAll(
     @Query('entity') entity?: string,
     @Query('entityId') entityId?: string,
@@ -46,6 +49,7 @@ export class AuditController {
   }
 
   @Get(':id')
+  @Roles('ADMIN', 'MANAGER')
   async findOne(@Param('id', ParseIntPipe) id: number): Promise<AuditLog> {
     return this.auditService.findOne(id);
   }

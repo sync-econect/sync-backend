@@ -20,6 +20,8 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from './modules/auth/guards/roles.guard';
+import { PermissionsGuard } from './modules/auth/guards/permissions.guard';
+import { UserPermissionsModule } from './modules/user-permissions/user-permissions.module';
 
 @Module({
   imports: [
@@ -30,6 +32,7 @@ import { RolesGuard } from './modules/auth/guards/roles.guard';
     PrismaModule,
     AuthModule,
     UsersModule,
+    UserPermissionsModule,
     UnitsModule,
     ValidationRulesModule,
     RawDataModule,
@@ -50,6 +53,10 @@ import { RolesGuard } from './modules/auth/guards/roles.guard';
     {
       provide: APP_GUARD,
       useClass: RolesGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: PermissionsGuard,
     },
     {
       provide: APP_INTERCEPTOR,

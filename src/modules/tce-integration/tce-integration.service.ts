@@ -1,9 +1,15 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import { Remittance, Prisma } from '../../../generated/prisma/client';
 import { TceMockService, TceResponse } from './tce-mock.service';
+import { UserPermissionsService } from '../user-permissions/user-permissions.service';
 import { firstValueFrom } from 'rxjs';
 import { AxiosError } from 'axios';
 
@@ -25,6 +31,7 @@ export class TceIntegrationService {
     private configService: ConfigService,
     private httpService: HttpService,
     private tceMockService: TceMockService,
+    private userPermissionsService: UserPermissionsService,
   ) {
     this.isMockMode =
       this.configService.get<string>('TCE_API_MOCK', 'true') === 'true';
@@ -42,7 +49,10 @@ export class TceIntegrationService {
     );
   }
 
-  async sendRemittance(remittanceId: number): Promise<SendResult> {
+  async sendRemittance(
+    remittanceId: number,
+    userId?: number,
+  ): Promise<SendResult> {
     const remittance = await this.prisma.client.remittance.findUnique({
       where: { id: remittanceId },
       include: { unit: true },
@@ -52,6 +62,22 @@ export class TceIntegrationService {
       throw new NotFoundException(
         `Remittance com ID ${remittanceId} não encontrada`,
       );
+    }
+
+    // Verifica permissão granular por UG e módulo
+    if (userId) {
+      const hasPermission = await this.userPermissionsService.checkPermission({
+        userId,
+        unitId: remittance.unitId,
+        module: remittance.module,
+        action: 'transmit',
+      });
+
+      if (!hasPermission) {
+        throw new ForbiddenException(
+          'Você não tem permissão para transmitir remessas desta UG/módulo',
+        );
+      }
     }
 
     if (remittance.status !== 'READY') {
